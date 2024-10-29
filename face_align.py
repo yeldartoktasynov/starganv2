@@ -389,7 +389,8 @@ def landmarks2S(x, y):
 def pad_mirror(img, landmarks):
     H, W, _ = img.shape
     img = np.pad(img, ((H//2, H//2), (W//2, W//2), (0, 0)), 'reflect')
-    small_blurred = gaussian(cv2.resize(img, (W, H)), H//100, multichannel=True)
+    # small_blurred = gaussian(cv2.resize(img, (W, H)), H//100, multichannel=True)
+    small_blurred = np.stack([gaussian(img[..., c], sigma=1) for c in range(img.shape[-1])], axis=-1)
     blurred = cv2.resize(small_blurred, (W * 2, H * 2)) * 255
 
     H, W, _ = img.shape

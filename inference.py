@@ -3,10 +3,8 @@ import pathlib
 import torch
 from torchvision import transforms, utils
 from PIL import Image
-
 from face_align import FaceAligner
 from model import build_model
-
 
 CELEBRITY_LABELS = {'female': 0, 'male': 1}
 ANIMAL_LABELS = {"cat": 0, "dog": 1, "wild": 2}
@@ -23,7 +21,7 @@ class Predictor(torch.nn.Module):
         if entity == "celebrity":
             self.labels = CELEBRITY_LABELS
             sub_folder = "celeba_hq"
-            self.w_hpf = 1
+            self.w_hpf = 0.7
         elif entity == "animal":
             self.labels = ANIMAL_LABELS
             sub_folder = "afhq"
@@ -60,10 +58,9 @@ class Predictor(torch.nn.Module):
             self,
             ref_label: str,
             src_image: Image,
-            ref_image: Image
+            ref_image: Image,
+            res_p:str
     ):
-
-        result_image = pathlib.Path("images/res.jpg")
 
         if self.labels == CELEBRITY_LABELS:
             aligned_src, aligned_ref = self._align(src_image=src_image, ref_image=ref_image)
@@ -73,10 +70,15 @@ class Predictor(torch.nn.Module):
 
         ref_target = torch.tensor([self.labels[ref_label]])
         self._load_checkpoint(self.checkpoint_path, self.device, **self.nets_ema)
-        self._translate_using_reference(aligned_src.to(self.device),
+        res_img = self._translate_using_reference(aligned_src.to(self.device),
                                         aligned_ref.to(self.device),
                                         ref_target.to(self.device),
-                                        result_image)
+                                        res_p)
+        return res_img.cpu().numpy()
+
+        # combined_image = np.hstack((src_image, ref_image, res_img.cpu().numpy()))
+        # cv2.imwrite(f"gen_{res_p}", combined_image)
+
 
     def _align(self, src_image: Image, ref_image: Image):
         aligner = FaceAligner(self.wing_path, self.lm_path, self.image_size)
@@ -94,6 +96,7 @@ class Predictor(torch.nn.Module):
         x_fake = self.nets_ema.generator(x_src, s_ref, masks=masks)
         self._save_image(x_fake, 1, filename)
         del s_ref
+        return x_fake
 
     @staticmethod
     def _load_checkpoint(checkpoint_path, device, **nets_ema):
